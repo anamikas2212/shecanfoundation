@@ -27,17 +27,24 @@ app.get("/", (req, res) => {
   res.send("She Can Foundation Backend Running");
 });
 
-// MongoDB connection
-mongoose
-  .connect(process.env.MONGODB_URI, {
-    useNewUrlParser: true,
-    useUnifiedTopology: true,
-  })
-  .then(() => {
-    app.listen(PORT, () => {
-      console.log(`Server running on port ${PORT}`);
+// MongoDB connection with dynamic background retry/reconnect
+const connectWithRetry = () => {
+  mongoose
+    .connect(process.env.MONGODB_URI, {
+      serverSelectionTimeoutMS: 5000, // Quick 5-second check
+    })
+    .then(() => {
+      console.log("Connected to MongoDB successfully! All contact form submissions will now write to the database.");
+    })
+    .catch((err) => {
+      console.warn("MongoDB connection failed. Will check again in 10 seconds. Running in Local Backup mode.");
+      setTimeout(connectWithRetry, 10000); // Retry every 10s
     });
-  })
-  .catch((err) => {
-    console.error("MongoDB connection error:", err);
-  });
+};
+
+connectWithRetry();
+
+app.listen(PORT, () => {
+  console.log(`Server running on port ${PORT}`);
+});
+
